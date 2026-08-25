@@ -6,6 +6,7 @@
  * Copyright (c) 2021-2025, Alif Semicondutor
  * Author: Harith George <harith.g@alifsemi.com>
  */
+#include <linux/bits.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/iio/iio.h>
@@ -21,16 +22,16 @@
 #define ENSEMBLE_DAC_REG1		0x000
 #define ENSEMBLE_DAC_IN			0x004
 /* DAC  Control register */
-#define DAC_EN                   (1U << 0)   /* Enable DAC */
-#define DAC_RESET_B              (1U << 27)  /* 0=Reset,this will reset the DAC */
-#define DAC_HP_MODE_EN           (1U << 18)  /* To enable the dac output buffer */
+#define DAC_EN                   BIT(0)      /* Enable DAC */
+#define DAC_RESET_B              BIT(27)     /* 0=Reset,this will reset the DAC */
+#define DAC_HP_MODE_EN           BIT(18)     /* To enable the dac output buffer */
 
 /*
  * Maximum input for the DAC is 4095 (12-bit resolution)
  */
 #define DAC_MAX_INPUT            (0xFFFU)
 #define DEFAULT_INPUT_VALUE		0x0	/* Default Input Value in Input Register */
-#define DAC_IN_BYP_MUX           (1U << 1U)  /* Select the DAC input data source */
+#define DAC_IN_BYP_MUX           BIT(1)      /* Select the DAC input data source */
 #define DAC_MAX_BYP_VAL_Msk      (0x3FFCU)   /* DAC input data in bypass mode */
 #define DAC_TWOSCOMP_Pos          22U        /* Converts two's complement to unsigned binary data */
 #define DAC_INPUT_BYP_MUX_Pos     1U         /* Set DAC input source in bypass mode */
@@ -43,6 +44,7 @@ struct ensemble_dac {
 	struct clk *clk;
 	struct clk *cmp_clk;
 };
+
 static const struct iio_chan_spec ensemble_dac_iio_channels[] = {
 	{
 		.type = IIO_VOLTAGE,
@@ -52,8 +54,8 @@ static const struct iio_chan_spec ensemble_dac_iio_channels[] = {
 };
 
 static int ensemble_dac_read_raw(struct iio_dev *indio_dev,
-				struct iio_chan_spec const *chan,
-				int *val, int *val2, long mask)
+				 struct iio_chan_spec const *chan,
+				 int *val, int *val2, long mask)
 {
 	struct ensemble_dac *dac = iio_priv(indio_dev);
 
@@ -62,8 +64,8 @@ static int ensemble_dac_read_raw(struct iio_dev *indio_dev,
 }
 
 static int ensemble_dac_write_raw(struct iio_dev *indio_dev,
-				 struct iio_chan_spec const *chan,
-				 int val, int val2, long mask)
+				  struct iio_chan_spec const *chan,
+				  int val, int val2, long mask)
 {
 	struct ensemble_dac *dac = iio_priv(indio_dev);
 	unsigned int reg;

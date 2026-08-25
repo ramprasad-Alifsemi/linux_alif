@@ -40,6 +40,7 @@ struct hwsem {
 	struct device *dev;
 	struct miscdevice miscdev;
 	void __iomem *hwsem_base;
+	/* serializes access to @ready, @pid, @flags and the HWSEM registers */
 	spinlock_t lock;
 	unsigned long flags;
 	wait_queue_head_t waitq;
@@ -54,8 +55,8 @@ enum {
 
 static int i;
 
-static long hwsem_ioctl(struct file *f,
-		unsigned int cmd, unsigned long arg)
+static long hwsem_ioctl(struct file *f, unsigned int cmd,
+			unsigned long arg)
 {
 	struct hwsem *drvdata = container_of(f->private_data,
 					struct hwsem, miscdev);
@@ -114,11 +115,12 @@ static long hwsem_ioctl(struct file *f,
 			 *   2. HWSEM is owned by one of the child threads or
 			 *      the current process.
 			 */
-			if (wait_event_interruptible(drvdata->waitq,
-				(drvdata->ready &&
-				!readl(drvdata->hwsem_base + HWSEM_REL_OFFSET)))) {
-				dev_info(drvdata->dev, "Process waiting for HWSEM lock was interrupted\n");
-				return -1;
+			if (wait_event_interruptible(drvdata->waitq, drvdata->ready &&
+						     !readl(drvdata->hwsem_base +
+							    HWSEM_REL_OFFSET))) {
+				dev_info(drvdata->dev,
+					 "Process waiting for HWSEM lock was interrupted\n");
+				return -ERESTARTSYS;
 			}
 			spin_lock(&drvdata->lock);
 
@@ -137,11 +139,11 @@ static long hwsem_ioctl(struct file *f,
 			/* First acquisition by this process */
 			drvdata->pid = current->tgid;
 			writel(MASTER_ID,
-				drvdata->hwsem_base + HWSEM_ACQ_OFFSET);
+			       drvdata->hwsem_base + HWSEM_ACQ_OFFSET);
 			drvdata->ready = false;
 			spin_unlock(&drvdata->lock);
 			break;
-	}
+		}
 		return 0;
 	default:
 		return -ENOTTY;
@@ -205,7 +207,6 @@ static int hwsem_probe(struct platform_device *pdev)
 	if (IS_ERR(hwsem_base))
 		return PTR_ERR(hwsem_base);
 
-
 	dev_set_drvdata(dev, (void *)hwsem_ptr);
 
 	spin_lock_init(&hwsem_ptr->lock);
@@ -236,9 +237,8 @@ static int hwsem_probe(struct platform_device *pdev)
 		return hwsem_ptr->irq;
 	}
 
-
 	ret = devm_request_irq(&pdev->dev, hwsem_ptr->irq, hwsem_isr, IRQF_SHARED,
-		"hardware semaphore", hwsem_ptr);
+			       "hardware semaphore", hwsem_ptr);
 
 	if (ret) {
 		dev_err(hwsem_ptr->dev, "devm_request_irq() failed with %d\n",

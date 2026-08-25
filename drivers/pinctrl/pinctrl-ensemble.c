@@ -40,7 +40,7 @@
  */
 #define ENSEMBLE_DSC_SHIFT		3
 #define ENSEMBLE_DSC_MASK		0x3
-#define ENSEMBLE_PINCONF_DSC(x)		((x & ENSEMBLE_DSC_MASK) << ENSEMBLE_DSC_SHIFT)
+#define ENSEMBLE_PINCONF_DSC(x)		(((x) & ENSEMBLE_DSC_MASK) << ENSEMBLE_DSC_SHIFT)
 #define ENSEMBLE_PINCONF_DSC_Z		ENSEMBLE_PINCONF_DSC(0)
 #define ENSEMBLE_PINCONF_DSC_PU		ENSEMBLE_PINCONF_DSC(1)
 #define ENSEMBLE_PINCONF_DSC_PD		ENSEMBLE_PINCONF_DSC(2)
@@ -54,7 +54,7 @@
  */
 #define ENSEMBLE_ODS_SHIFT		5
 #define ENSEMBLE_ODS_MASK		0x3
-#define ENSEMBLE_PINCONF_DRIVE_STRENGTH(x)	((x & ENSEMBLE_ODS_MASK) << ENSEMBLE_ODS_SHIFT)
+#define ENSEMBLE_PINCONF_DRIVE_STRENGTH(x)	(((x) & ENSEMBLE_ODS_MASK) << ENSEMBLE_ODS_SHIFT)
 #define ENSEMBLE_PINCONF_DS_2MA		ENSEMBLE_PINCONF_DRIVE_STRENGTH(0)
 #define ENSEMBLE_PINCONF_DS_4MA		ENSEMBLE_PINCONF_DRIVE_STRENGTH(1)
 #define ENSEMBLE_PINCONF_DS_8MA		ENSEMBLE_PINCONF_DRIVE_STRENGTH(2)
@@ -75,6 +75,7 @@ struct ensemble_pinctrl {
 	struct pinctrl_dev	*pctl;
 	void __iomem		*pinmux_base;
 	unsigned int group_index;
+	/* Mutex for protecting pinmux operations */
 	struct mutex mutex;
 };
 
@@ -216,8 +217,8 @@ static const struct pinctrl_pin_desc ensemble_pins[] = {
 	PINCTRL_PIN(119, "P14_7"),
 };
 
-static inline const struct group_desc *ensemble_pinctrl_find_group_by_name(
-			struct pinctrl_dev *pctldev, const char *name)
+static inline const struct group_desc *
+ensemble_pinctrl_find_group_by_name(struct pinctrl_dev *pctldev, const char *name)
 {
 	const struct group_desc *grp = NULL;
 	int i;
@@ -230,15 +231,14 @@ static inline const struct group_desc *ensemble_pinctrl_find_group_by_name(
 	return grp;
 }
 
-static void ensemble_pin_dbg_show(struct pinctrl_dev *pctldev,
-			struct seq_file *s, unsigned int offset)
+static void ensemble_pin_dbg_show(struct pinctrl_dev *pctldev, struct seq_file *s,
+				  unsigned int offset)
 {
 	seq_printf(s, "%s", dev_name(pctldev->dev));
 }
 
-static int ensemble_dt_node_to_map(struct pinctrl_dev *pctldev,
-			struct device_node *np, struct pinctrl_map **map,
-			unsigned int *num_maps)
+static int ensemble_dt_node_to_map(struct pinctrl_dev *pctldev, struct device_node *np,
+				   struct pinctrl_map **map, unsigned int *num_maps)
 {
 	struct ensemble_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long *configs;
@@ -261,7 +261,7 @@ static int ensemble_dt_node_to_map(struct pinctrl_dev *pctldev,
 	}
 
 	ret = pinconf_generic_parse_dt_config(np, pctldev, &configs,
-		 &num_configs);
+					      &num_configs);
 	if (ret) {
 		return dev_err_probe(ipctl->dev, -EINVAL,
 			"Unable to parse dt config for node %pOFn\n", np);
@@ -293,7 +293,6 @@ static int ensemble_dt_node_to_map(struct pinctrl_dev *pctldev,
 	of_node_put(parent);
 
 	if (num_configs) {
-
 		/* j index starts with 1 as the first map is already taken */
 		/* create config map */
 		j = 1;
@@ -302,10 +301,10 @@ static int ensemble_dt_node_to_map(struct pinctrl_dev *pctldev,
 
 			/* The counter 'j' is incremented by this function */
 			ret = pinctrl_utils_add_map_configs(pctldev, &new_map,
-					num_maps, &j,
-					pin_get_name(pctldev, pin->pin_no),
-					configs, num_configs,
-					PIN_MAP_TYPE_CONFIGS_PIN);
+							    num_maps, &j,
+							    pin_get_name(pctldev, pin->pin_no),
+							    configs, num_configs,
+							    PIN_MAP_TYPE_CONFIGS_PIN);
 		}
 	}
 
@@ -326,8 +325,7 @@ static const struct pinctrl_ops ensemble_pctl_ops = {
 	.dt_free_map = pinctrl_utils_free_map,
 };
 
-static inline int pinmux_set_one_pin(struct ensemble_pinctrl *pctl,
-			struct ensemble_pin *pin)
+static inline int pinmux_set_one_pin(struct ensemble_pinctrl *pctl, struct ensemble_pin *pin)
 {
 	unsigned int pin_id = pin->pin_no;
 	u32 offset, val;
@@ -348,8 +346,7 @@ static inline int pinmux_set_one_pin(struct ensemble_pinctrl *pctl,
 	return 0;
 }
 
-static int pinmux_set(struct pinctrl_dev *pctldev, unsigned int selector,
-			unsigned int group)
+static int pinmux_set(struct pinctrl_dev *pctldev, unsigned int selector, unsigned int group)
 {
 	struct ensemble_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
 	struct function_desc *func;
@@ -391,8 +388,7 @@ const struct pinmux_ops ensemble_pmx_ops = {
 	.set_mux = pinmux_set,
 };
 
-static int ensemble_padconf_get_config(struct ensemble_pinctrl *info,
-			unsigned int pin, u32 *val)
+static int ensemble_padconf_get_config(struct ensemble_pinctrl *info, unsigned int pin, u32 *val)
 {
 	u32 offset = pin * 4;
 	u32 tmp;
@@ -403,8 +399,7 @@ static int ensemble_padconf_get_config(struct ensemble_pinctrl *info,
 	return 0;
 }
 
-static void ensemble_padconf_set_config(struct ensemble_pinctrl *info,
-			unsigned int pin, u32 val)
+static void ensemble_padconf_set_config(struct ensemble_pinctrl *info, unsigned int pin, u32 val)
 {
 	u32 offset = pin * 4;
 	u32 tmp;
@@ -418,9 +413,8 @@ static void ensemble_padconf_set_config(struct ensemble_pinctrl *info,
 	writel_relaxed(tmp, info->pinmux_base + offset);
 }
 
-static int ensemble_pinconf_set(struct pinctrl_dev *pctldev,
-			unsigned int pin_id, unsigned long *configs,
-			unsigned int num_configs)
+static int ensemble_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin_id,
+				unsigned long *configs, unsigned int num_configs)
 {
 	int i;
 	unsigned long config;
@@ -493,8 +487,8 @@ static int ensemble_pinconf_set(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-static int ensemble_pinconf_get(struct pinctrl_dev *pctldev,
-				unsigned int pin_id, unsigned long *config)
+static int ensemble_pinconf_get(struct pinctrl_dev *pctldev, unsigned int pin_id,
+				unsigned long *config)
 {
 	struct ensemble_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	unsigned int param = pinconf_to_config_param(*config);
@@ -586,9 +580,9 @@ static const struct pinconf_ops ensemble_conf_ops = {
  *     <mux_conf_reg input_reg mux_mode input_val>
  *     <pin_id mux_mode>
  */
-static void ensemble_pinctrl_parse_pin(struct ensemble_pinctrl *info,
-			unsigned int *pin_id, struct ensemble_pin *pin,
-			const __be32 **list_p, struct device_node *np)
+static void ensemble_pinctrl_parse_pin(struct ensemble_pinctrl *info, unsigned int *pin_id,
+				       struct ensemble_pin *pin, const __be32 **list_p,
+				       struct device_node *np)
 {
 	const __be32 *list = *list_p;
 	u32 val;
@@ -606,13 +600,11 @@ static void ensemble_pinctrl_parse_pin(struct ensemble_pinctrl *info,
 	*list_p = list;
 
 	dev_dbg(info->dev, "%ld: 0x%lx 0x%08lx", pin->pin_no,
-			pin->mux, pin->padctrl);
+		pin->mux, pin->padctrl);
 }
 
-static int ensemble_pinctrl_parse_groups(struct device_node *np,
-				    struct group_desc *grp,
-				    struct ensemble_pinctrl *pctl,
-				    u32 index)
+static int ensemble_pinctrl_parse_groups(struct device_node *np, struct group_desc *grp,
+					 struct ensemble_pinctrl *pctl, u32 index)
 {
 	struct ensemble_pin *pin;
 	const __be32 *list;
@@ -638,9 +630,9 @@ static int ensemble_pinctrl_parse_groups(struct device_node *np,
 
 	grp->grp.npins = size / PIN_SIZE;
 	grp->data = devm_kcalloc(pctl->dev, grp->grp.npins,
-				sizeof(*pin), GFP_KERNEL);
+				 sizeof(*pin), GFP_KERNEL);
 	grp->grp.pins = devm_kcalloc(pctl->dev, grp->grp.npins,
-				sizeof(unsigned int), GFP_KERNEL);
+				     sizeof(unsigned int), GFP_KERNEL);
 	if (!grp->grp.pins || !grp->data)
 		return -ENOMEM;
 
@@ -651,8 +643,7 @@ static int ensemble_pinctrl_parse_groups(struct device_node *np,
 	return 0;
 }
 
-static int ensemble_pinctrl_probe_dt(struct platform_device *pdev,
-				struct ensemble_pinctrl *ipctl)
+static int ensemble_pinctrl_probe_dt(struct platform_device *pdev, struct ensemble_pinctrl *ipctl)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *child;
@@ -685,7 +676,7 @@ static int ensemble_pinctrl_probe_dt(struct platform_device *pdev,
 	func->func.name = np->name;
 	func->func.ngroups = pctl->num_groups;
 	group_names = devm_kcalloc(ipctl->dev, func->func.ngroups,
-					 sizeof(*group_names), GFP_KERNEL);
+				   sizeof(*group_names), GFP_KERNEL);
 	if (!group_names)
 		return -ENOMEM;
 
@@ -699,7 +690,7 @@ static int ensemble_pinctrl_probe_dt(struct platform_device *pdev,
 		}
 		mutex_lock(&ipctl->mutex);
 		radix_tree_insert(&pctl->pin_group_tree,
-				ipctl->group_index++, grp);
+				  ipctl->group_index++, grp);
 		mutex_unlock(&ipctl->mutex);
 
 		ensemble_pinctrl_parse_groups(child, grp, ipctl, i++);
@@ -727,6 +718,7 @@ static int ensemble_pctl_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	info->dev = dev;
+	mutex_init(&info->mutex);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	info->pinmux_base = devm_ioremap_resource(dev, res);

@@ -21,7 +21,7 @@
 #include <linux/mod_devicetable.h>
 #include "alif_temp.h"
 
-extern int tempData[][2];
+extern int temp_data[][2];
 u32 channel_sel;
 
 /* ADC_INTERRUPT register bit definitions */
@@ -110,7 +110,7 @@ u32 channel_sel;
 #define ADC_START_SINGLE_SHOT_CONV		BIT(ADC_START_SINGLE_SHOT_CONV_POS)
 
 /* Sample width */
-#define ADC12_SAMPLE_WIDTH_Msk		(GENMASK(15, 0))
+#define ADC12_SAMPLE_WIDTH_MSK		(GENMASK(15, 0))
 
 #define SHIFT_DIR_POS			16U
 #define SHIFT_CONTROL_POS		8U
@@ -154,7 +154,7 @@ u32 channel_sel;
 
 /****Shift bit macro****/
 #define ADC_SHIFT_BIT		16U
-#define ADC_SEQUENCER_INIT_Pos	12U
+#define ADC_SEQUENCER_INIT_POS	12U
 
 /****Comparator Macros****/
 #define ADC_CMP_THRHLD_ABOVE_A		(0)
@@ -162,39 +162,48 @@ u32 channel_sel;
 #define ADC_CMP_THRHLD_BETWEEN_A_B	(2)
 
 /* ADC reg1 position macro */
-#define ADC120_DIFFERENTIAL_EN_Pos (1)
-#define ADC120_COMPARATOR_EN_Pos   (2)
-#define ADC120_COMPARATOR_BIAS_Pos (3)
-#define ADC120_VCM_DIV_Pos         (5)
+#define ADC120_DIFFERENTIAL_EN_POS (1)
+#define ADC120_COMPARATOR_EN_POS   (2)
+#define ADC120_COMPARATOR_BIAS_POS (3)
+#define ADC120_VCM_DIV_POS         (5)
 
-#define ADC121_DIFFERENTIAL_EN_Pos (1)
-#define ADC121_COMPARATOR_EN_Pos   (2)
-#define ADC121_COMPARATOR_BIAS_Pos (3)
-#define ADC121_VCM_DIV_Pos         (5)
+#define ADC121_DIFFERENTIAL_EN_POS (1)
+#define ADC121_COMPARATOR_EN_POS   (2)
+#define ADC121_COMPARATOR_BIAS_POS (3)
+#define ADC121_VCM_DIV_POS         (5)
 
-#define ADC122_DIFFERENTIAL_EN_Pos (1)
-#define ADC122_COMPARATOR_EN_Pos   (2)
-#define ADC122_COMPARATOR_BIAS_Pos (3)
-#define ADC122_VCM_DIV_Pos         (5)
+#define ADC122_DIFFERENTIAL_EN_POS (1)
+#define ADC122_COMPARATOR_EN_POS   (2)
+#define ADC122_COMPARATOR_BIAS_POS (3)
+#define ADC122_VCM_DIV_POS         (5)
 
 /* PMU_PERIPH field definitions */
 #define PMU_PERIPH_ADC24_EN			BIT(12)
-#define PMU_PERIPH_ADC24_OUTPUT_RATE_Pos	13U
-#define PMU_PERIPH_ADC24_OUTPUT_RATE_Msk	(GENMASK(15, 13))
-#define PMU_PERIPH_ADC24_BIAS_Pos		20U
-#define PMU_PERIPH_ADC24_BIAS_Msk		(GENMASK(22, 20))
+#define PMU_PERIPH_ADC24_OUTPUT_RATE_POS	13U
+#define PMU_PERIPH_ADC24_OUTPUT_RATE_MSK	(GENMASK(15, 13))
+#define PMU_PERIPH_ADC24_BIAS_POS		20U
+#define PMU_PERIPH_ADC24_BIAS_MSK		(GENMASK(22, 20))
 
 /* ADC reference voltage: 1.76V, stored as 176 (divide by 100 to get volts) */
 #define ADC_VREF_CENTIVOLTS		176
 
 /* Program clk divisor from 2 to 16 on ADC_CLK_DIVISOR register */
-#define CLK_DIVISOR(x) (x < 16 ? x : 16)
+static inline u32 alif_adc_clk_divisor(u32 x)
+{
+	return x < 16 ? x : 16;
+}
 
 /* Program Sample number from 2 to 256 to ADC_AVG_NUM register */
-#define AVG_NUM(x) (x < 256 ? x : 256)
+static inline u32 alif_adc_avg_num(u32 x)
+{
+	return x < 256 ? x : 256;
+}
 
 /* Program Sample width from 2 to 32 to ADC_SAMPLE_WIDTH register */
-#define WIDTH_SAMPLE(x) (x < 32 ? x : 32)
+static inline u32 alif_adc_sample_width(u32 x)
+{
+	return x < 32 ? x : 32;
+}
 
 #define TIMEOUT_MS 100
 
@@ -280,6 +289,7 @@ struct alif_adc_state {
 	u8 comparator_bias;
 	u8 adc24_bias;
 	u8 adc24_output_rate;
+	/* serializes concurrent readers of @value in alif_read_raw() */
 	spinlock_t lock_s;
 	void __iomem *cmp_base;
 };
@@ -292,32 +302,31 @@ enum ADC_INSTANCE {
 	ADC_INSTANCE_ADC24_0,
 };
 
-
-
-#define ALIF_ADC_CHANNEL_BASE(_index, _chan_type)		\
+#define ALIF_ADC_CHANNEL_BASE(_channel, _scan_index, _address, _chan_type) \
 		.type = (_chan_type),				\
 		.indexed = 1,					\
-		.channel = _index,				\
+		.channel = (_channel),				\
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
-		.address = ALIFAD_IN * _index,		\
-		.scan_index = _index,
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
+		.address = (_address),				\
+		.scan_index = (_scan_index),
 
-#define ALIF_ADC_CHANNEL(_index, _chan_type) {		\
-		ALIF_ADC_CHANNEL_BASE(_index, _chan_type)	\
+#define ALIF_ADC_CHANNEL(_channel, _scan_index, _address, _chan_type) { \
+		ALIF_ADC_CHANNEL_BASE(_channel, _scan_index, _address, \
+				      _chan_type)		\
 }
 
-#define ALIF_ADC_TEMPERATURE_CHAN(_idx, _chan_type) {  \
-		.type = (_chan_type),   \
-		.channel = (_idx),              \
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
-			BIT(IIO_CHAN_INFO_SCALE), \
-		.scan_index = (_idx),                                   \
-		.scan_type = {                                          \
-				.sign = 'u',                            \
-				.realbits = 12,                         \
-				.storagebits = 16,                      \
-},                                                      \
+#define ALIF_ADC_TEMPERATURE_CHAN(_channel, _scan_index, _chan_type) { \
+		.type = (_chan_type),				\
+		.channel = (_channel),				\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |	\
+				      BIT(IIO_CHAN_INFO_SCALE),	\
+		.scan_index = (_scan_index),			\
+		.scan_type = {					\
+			.sign = 'u',				\
+			.realbits = 12,				\
+			.storagebits = 16,			\
+		},						\
 }
 
 #define ALIF_ADC_CHANNEL_DIFF(chan1, chan2, si)             \
@@ -338,14 +347,14 @@ enum ADC_INSTANCE {
 		}
 
 static const struct iio_chan_spec alif_adc_iio_channels[] = {
-ALIF_ADC_CHANNEL(0, IIO_VOLTAGE),
-ALIF_ADC_CHANNEL(1, IIO_VOLTAGE),
-ALIF_ADC_CHANNEL(2, IIO_VOLTAGE),
-ALIF_ADC_CHANNEL(3, IIO_VOLTAGE),
-ALIF_ADC_CHANNEL(4, IIO_VOLTAGE),
-ALIF_ADC_CHANNEL(5, IIO_VOLTAGE),
-ALIF_ADC_TEMPERATURE_CHAN(6, IIO_TEMP),
-ALIF_ADC_CHANNEL(7, IIO_VOLTAGE), };
+ALIF_ADC_CHANNEL(0, 0, ALIFAD_IN * 0, IIO_VOLTAGE),
+ALIF_ADC_CHANNEL(1, 1, ALIFAD_IN * 1, IIO_VOLTAGE),
+ALIF_ADC_CHANNEL(2, 2, ALIFAD_IN * 2, IIO_VOLTAGE),
+ALIF_ADC_CHANNEL(3, 3, ALIFAD_IN * 3, IIO_VOLTAGE),
+ALIF_ADC_CHANNEL(4, 4, ALIFAD_IN * 4, IIO_VOLTAGE),
+ALIF_ADC_CHANNEL(5, 5, ALIFAD_IN * 5, IIO_VOLTAGE),
+ALIF_ADC_TEMPERATURE_CHAN(6, 6, IIO_TEMP),
+ALIF_ADC_CHANNEL(7, 7, ALIFAD_IN * 7, IIO_VOLTAGE), };
 
 static const struct iio_chan_spec adc24_channels[] = {
 ALIF_ADC_CHANNEL_DIFF(0, 4, 8),
@@ -367,7 +376,7 @@ static inline void adc_disable_single_shot_conv(struct alif_adc_state *st)
 }
 
 static inline void adc_sequencer_msk_ch_control(struct alif_adc_state *st,
-		int channel) {
+						int channel) {
 	u32 val;
 
 	val = readl(st->adc_base + ADC_SEQUENCER_CTRL);
@@ -392,11 +401,11 @@ static inline void adc_enable_single_shot_conv(struct alif_adc_state *st)
 }
 
 static inline void adc_set_ch_scan_mode(struct alif_adc_state *st,
-		int channel_scan_mode, int channel) {
+					int channel_scan_mode, int channel) {
 	u32 val;
 
 	val = readl(st->adc_base + ADC_SEQUENCER_CTRL);
-	val = (channel_scan_mode << 0) | (channel << ADC_SEQUENCER_INIT_Pos);
+	val = (channel_scan_mode << 0) | (channel << ADC_SEQUENCER_INIT_POS);
 	writel(val, st->adc_base + ADC_SEQUENCER_CTRL);
 	val = readl(st->adc_base + ADC_SEQUENCER_CTRL);
 }
@@ -414,32 +423,29 @@ static inline void disable_adc(struct alif_adc_state *st)
 	writel(data, st->adc_base + ADC_CONTROL);
 }
 
-static inline void adc_set_diff_and_comp(struct alif_adc_state *st,
-		u32 inst, u8 differential, u8 comparator_en,
-		u8 comparator_bias)
+static inline void adc_set_diff_and_comp(struct alif_adc_state *st, u32 inst, u8 differential,
+					 u8 comparator_en, u8 comparator_bias)
 {
 	u32 val_r, read_r;
 
 	switch (inst) {
 	case ADC_INSTANCE_ADC12_0:
-		val_r = ((differential << ADC120_DIFFERENTIAL_EN_Pos));
-		val_r |= ((1 << ADC120_VCM_DIV_Pos)
-			    | (comparator_en << ADC120_COMPARATOR_EN_Pos)
-			    | (comparator_bias << ADC120_COMPARATOR_BIAS_Pos));
+		val_r = ((differential << ADC120_DIFFERENTIAL_EN_POS));
+		val_r |= ((1 << ADC120_VCM_DIV_POS) | (comparator_en << ADC120_COMPARATOR_EN_POS)
+			    | (comparator_bias << ADC120_COMPARATOR_BIAS_POS));
 		break;
 
 	case ADC_INSTANCE_ADC12_1:
-		val_r = ((differential << ADC121_DIFFERENTIAL_EN_Pos));
-		val_r |= ((1 << ADC121_VCM_DIV_Pos)
-			    | (comparator_en << ADC121_COMPARATOR_EN_Pos)
-			    | (comparator_bias << ADC121_COMPARATOR_BIAS_Pos));
+		val_r = ((differential << ADC121_DIFFERENTIAL_EN_POS));
+		val_r |= ((1 << ADC121_VCM_DIV_POS) | (comparator_en << ADC121_COMPARATOR_EN_POS)
+			    | (comparator_bias << ADC121_COMPARATOR_BIAS_POS));
 		break;
 
 	case ADC_INSTANCE_ADC12_2:
-		val_r = ((differential << ADC122_DIFFERENTIAL_EN_Pos));
-		val_r |= ((1 << ADC122_VCM_DIV_Pos)
-			    | (comparator_en << ADC122_COMPARATOR_EN_Pos)
-			    | (comparator_bias << ADC122_COMPARATOR_BIAS_Pos));
+		val_r = ((differential << ADC122_DIFFERENTIAL_EN_POS));
+		val_r |= ((1 << ADC122_VCM_DIV_POS)
+			    | (comparator_en << ADC122_COMPARATOR_EN_POS)
+			    | (comparator_bias << ADC122_COMPARATOR_BIAS_POS));
 		break;
 
 	default:
@@ -458,23 +464,21 @@ static int get_temp(int *adc_value)
 	u32 i;
 
 	/* check for temperature operating range */
-	if ((*adc_value < tempData[0][0])
-			|| (*adc_value > tempData[MAX_TEMP_RANGE][0])) {
+	if ((*adc_value < temp_data[0][0]) ||
+	    (*adc_value > temp_data[MAX_TEMP_RANGE][0]))
 		return -EINVAL;
-	}
 
-	for (i = 0; i < ARRAY_SIZE(tempData); i++) {
+	for (i = 0; i < ARRAY_SIZE(temp_data); i++) {
 		/* check if value matches with tempdata */
-		if (*adc_value == tempData[i][0])
+		if (*adc_value == temp_data[i][0])
 			break;
 	}
 
-	return (tempData[i][1]);
+	return (temp_data[i][1]);
 }
 
-static int alif_read_raw(struct iio_dev *indio_dev,
-				struct iio_chan_spec const *chan,
-				int *val, int *val2, long mask)
+static int alif_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
+			 int *val, int *val2, long mask)
 {
 	struct alif_adc_state *st = iio_priv(indio_dev);
 	int ret, temp, buff;
@@ -487,7 +491,7 @@ static int alif_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		adc_set_ch_scan_mode(st, ADC_SCAN_MODE_SINGLE_CH,
-					chan->channel);
+				     chan->channel);
 		adc_sequencer_msk_ch_control(st, chan->channel);
 		channel_sel = ((readl(st->adc_base + ADC_SEQUENCER_CTRL)
 				& ADC_SEQUENCER_INIT_MASK) >> 12);
@@ -499,7 +503,7 @@ static int alif_read_raw(struct iio_dev *indio_dev,
 		}
 		adc_enable_single_shot_conv(st);
 		ret = wait_for_completion_timeout(&st->completion,
-			msecs_to_jiffies(TIMEOUT_MS)); /* set by ISR */
+						  msecs_to_jiffies(TIMEOUT_MS)); /* set by ISR */
 		if (ret == 0) {
 			clk_disable_unprepare(st->clk);
 			return -ETIMEDOUT;
@@ -574,8 +578,8 @@ static int alif_read_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static ssize_t adc_differential_var_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t adc_differential_var_store(struct device *dev, struct device_attribute *attr,
+					  const char *buf, size_t count)
 {
 	struct alif_adc_state *st = iio_priv(dev_to_iio_dev(dev));
 	int ret;
@@ -585,7 +589,7 @@ static ssize_t adc_differential_var_store(struct device *dev,
 		return -EINVAL;
 
 	adc_set_diff_and_comp(st, st->instance, st->differential,
-			st->comparator_en, st->comparator_bias);
+			      st->comparator_en, st->comparator_bias);
 
 	pr_info("differential mode %s\n",
 		st->differential ? "enabled" : "disabled");
@@ -593,7 +597,7 @@ static ssize_t adc_differential_var_store(struct device *dev,
 }
 
 static ssize_t adc_differential_var_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+					 struct device_attribute *attr, char *buf)
 {
 	struct alif_adc_state *st = iio_priv(dev_to_iio_dev(dev));
 
@@ -615,7 +619,6 @@ static const struct iio_info alif_adc_iio_info = { .read_raw =
 
 static inline void read_adc_data(struct alif_adc_state *st)
 {
-
 	u32 value;
 	void __iomem *channel_sample_reg;
 	void __iomem *sample_reg = (st->adc_base + ADC_SAMPLE_REG_0);
@@ -682,6 +685,7 @@ static inline void adc_set_comparator_ctrl_bit(struct alif_adc_state *st)
 	val = COMP_EN;
 	writel(val, st->adc_base + ADC_CONTROL);
 }
+
 static inline void adc_set_comparator_b(struct alif_adc_state *st)
 {
 	u32 val;
@@ -704,7 +708,6 @@ static inline void adc_set_n_shift_bit(struct alif_adc_state *st)
 {
 	/* set ADC shift bit for ADC12/24 */
 	writel(st->shift_control_val, st->adc_base + ADC_SHIFT_CONTROL);
-
 }
 
 static inline void adc_set_clock_divsor(struct alif_adc_state *st)
@@ -724,7 +727,7 @@ static inline void adc_set_sample_width(struct alif_adc_state *st)
 	u32 val;
 
 	val = readl(st->adc_base + ADC_SAMPLE_WIDTH);
-	val = (val & ~ADC12_SAMPLE_WIDTH_Msk) | st->width_sample |
+	val = (val & ~ADC12_SAMPLE_WIDTH_MSK) | st->width_sample |
 				st->sample_hold;
 	writel(val, st->adc_base + ADC_SAMPLE_WIDTH);
 }
@@ -752,19 +755,19 @@ static inline void set_adc24_bias(struct alif_adc_state *st, u32 bias)
 	u32 data;
 
 	data = readl(st->adc_base + PMU_PERIPH_OFFSET);
-	data |= ((bias << PMU_PERIPH_ADC24_BIAS_Pos) &
-		PMU_PERIPH_ADC24_BIAS_Msk);
+	data |= ((bias << PMU_PERIPH_ADC24_BIAS_POS) &
+		PMU_PERIPH_ADC24_BIAS_MSK);
 	writel(data, st->adc_base + PMU_PERIPH_OFFSET);
 }
 
 static inline void set_adc24_output_rate(struct alif_adc_state *st,
-		u32 rate)
+					 u32 rate)
 {
 	u32 data;
 
 	data = readl(st->adc_base + PMU_PERIPH_OFFSET);
-	data |= ((rate << PMU_PERIPH_ADC24_OUTPUT_RATE_Pos)
-			& PMU_PERIPH_ADC24_OUTPUT_RATE_Msk);
+	data |= ((rate << PMU_PERIPH_ADC24_OUTPUT_RATE_POS)
+			& PMU_PERIPH_ADC24_OUTPUT_RATE_MSK);
 	writel(data, st->adc_base + PMU_PERIPH_OFFSET);
 }
 
@@ -825,10 +828,10 @@ static int alif_adc_probe(struct platform_device *pdev)
 	iodev->num_channels = ARRAY_SIZE(alif_adc_iio_channels);
 	st->name = iodev->name;
 	st->vref = ADC_VREF_CENTIVOLTS;
-	st->clk_div = CLK_DIVISOR(2);
-	st->avg_sample = AVG_NUM(256);
+	st->clk_div = alif_adc_clk_divisor(2);
+	st->avg_sample = alif_adc_avg_num(256);
 	st->sample_hold = 0;
-	st->width_sample = WIDTH_SAMPLE(16);
+	st->width_sample = alif_adc_sample_width(16);
 	st->shift_control_val = (SHIFT_DIR_LEFT) | (SHIFT_CONTROL);
 
 	/* set the clock divisor */
@@ -887,7 +890,7 @@ static int alif_adc_probe(struct platform_device *pdev)
 		iodev->channels = adc24_channels;
 		iodev->num_channels = ARRAY_SIZE(adc24_channels);
 		st->instance = ADC_INSTANCE_ADC24_0;
-		st->width_sample = WIDTH_SAMPLE(0);
+		st->width_sample = alif_adc_sample_width(0);
 		st->sample_hold = SAMPLE_HOLD;
 		st->shift_control_val = ADC24_SHIFT_CONTROL_SETTING;
 		break;
@@ -918,11 +921,11 @@ static int alif_adc_probe(struct platform_device *pdev)
 	/* set differential control for ADC12 */
 	if (st->instance != ADC_INSTANCE_ADC24_0) {
 		adc_set_diff_and_comp(st, st->instance, st->differential,
-					st->comparator_en, st->comparator_bias);
+				      st->comparator_en, st->comparator_bias);
 	}
 
 	retval = devm_request_irq(&pdev->dev, irq, alif_adc_isr, 0,
-			ALIF_NAME, st);
+				  ALIF_NAME, st);
 
 	if (retval < 0) {
 		dev_err(&pdev->dev, "failed requesting interrupt\n");
@@ -934,7 +937,7 @@ static int alif_adc_probe(struct platform_device *pdev)
 		return retval;
 
 	dev_info(&pdev->dev, "ALIF ADC%d driver loaded successfully\n",
-			st->instance == ADC_INSTANCE_ADC24_0 ? 24 : 12);
+		 st->instance == ADC_INSTANCE_ADC24_0 ? 24 : 12);
 	return 0;
 }
 
@@ -946,7 +949,6 @@ static void alif_adc_remove(struct platform_device *pdev)
 	iio_device_unregister(indio_dev);
 	adc_disable_single_shot_conv(adc_priv);
 	clk_disable_unprepare(adc_priv->clk);
-
 }
 
 #ifdef CONFIG_OF

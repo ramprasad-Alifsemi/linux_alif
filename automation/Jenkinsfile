@@ -19,10 +19,8 @@ pipeline {
                            if cat checkpatch_input.txt | \
                            ./scripts/checkpatch.pl \
                            --strict \
-		           --ignore=COMMIT_LOG_LONG_LINE,NO_AUTHOR_SIGN_OFF \
-                           --ignore=NEW_TYPEDEFS,BAD_SIGN_OFF \
-                           --ignore=FILE_PATH_CHANGES,LONG_LINE_STRING \
-                           --ignore=LONG_LINE_COMMENT - ; then
+		           --ignore=NO_AUTHOR_SIGN_OFF \
+                           --ignore=BAD_SIGN_OFF - ; then
                               echo "INFO:checkpatch.pl succeeded"
                            else
                               echo "ERROR:checkpatch.pl failed on commit $iter"

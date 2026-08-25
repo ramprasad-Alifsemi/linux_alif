@@ -1,17 +1,19 @@
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
-$id: "http://devicetree.org/schemas/hwlock/alif,hwsem.yaml#"
-$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwlock/alif,hwsem.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Alif Ensemble Hardware Semaphore (HWSEM) Controller
+
 description: Alif Ensemble Hardware Semaphore (HWSEM) controller
 
 maintainers:
-  - Hemanth.Kumar<hemanth@alifsemi.com>
+  - Hemanth Kumar <hemanth@alifsemi.com>
 
 properties:
   compatible:
-    enum:
-      - alif,hwsem
+    const: alif,hwsem
 
   reg:
     maxItems: 1
@@ -23,7 +25,7 @@ properties:
     description: Names for the register areas.
 
   interrupts:
-    minItems: 1
+    maxItems: 1
     description: List of interrupt numbers.
 
   clocks:
@@ -35,10 +37,6 @@ properties:
       - const: syst_pclk
     description: Should be "syst_pclk" to match clocks phandles list.
 
-  status:
-    description: Standard property to enable/disable device.
-    enum: ["okay", "disabled"]
-
 required:
   - compatible
   - reg
@@ -47,17 +45,17 @@ required:
   - clocks
   - clock-names
 
-
 additionalProperties: false
 
 examples:
   - |
-    hwsem0: hwsem0@4902e000 {
+    #include <dt-bindings/clock/alif,ensemble-clock.h>
+
+    hwsem0: hwlock@4902e000 {
         compatible = "alif,hwsem";
         reg = <0x4902e000 0x4>;
         reg-names = "hwsem_base";
         interrupts = <0 30 4>;
         clocks = <&psclks ENSEMBLE_SYST_PCLK>;
         clock-names = "syst_pclk";
-        status = "okay";
     };

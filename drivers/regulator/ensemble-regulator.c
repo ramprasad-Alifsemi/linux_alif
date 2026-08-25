@@ -38,7 +38,6 @@ struct ensemble_reg_info {
 	struct regulator_desc desc;
 };
 
-
 static unsigned int ensemble_flexio_map_mode(unsigned int mode)
 {
 	switch (mode) {
@@ -63,7 +62,7 @@ static int ensemble_flexio_set_mode(struct regulator_dev *rdev, unsigned int mod
 
 	val = mode;
 	ret = regmap_update_bits(rdev->regmap, rdev->desc->vsel_reg,
-					rdev->desc->vsel_mask, val);
+				 rdev->desc->vsel_mask, val);
 err_mode:
 	if (ret) {
 		dev_err(&rdev->dev, "Failed to set Ensemble flexio voltage mode (%s) : %d\n",
@@ -95,7 +94,6 @@ static unsigned int ensemble_flexio_get_mode(struct regulator_dev *rdev)
 	default:
 		return REGULATOR_MODE_INVALID;
 	}
-
 }
 
 static const struct regulator_ops ensemble_regulator_voltage_ops = {
@@ -122,8 +120,9 @@ static const struct ensemble_reg_info ensemble_flexio = {
 };
 
 static struct of_regulator_match ensemble_matches[] = {
-	{ .name = "ensemble_flexio", .desc = &(ensemble_flexio.desc) },
+	{ .name = "ensemble_flexio", .desc = &ensemble_flexio.desc },
 };
+
 #define ENSEMBLE_NUM_REGS	ARRAY_SIZE(ensemble_matches)
 
 static const struct of_device_id ensemble_of_match[] = {

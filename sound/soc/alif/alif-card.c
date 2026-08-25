@@ -23,19 +23,18 @@
 #include <sound/initval.h>
 #include <sound/soc.h>
 
-SND_SOC_DAILINK_DEFS(capture,
-		DAILINK_COMP_ARRAY(COMP_CPU("alifpcm")),
-		DAILINK_COMP_ARRAY(COMP_CODEC("alifpcm", "alifpcm")),
-		DAILINK_COMP_ARRAY(COMP_PLATFORM("alifpcm")));
+SND_SOC_DAILINK_DEFS(capture, DAILINK_COMP_ARRAY(COMP_CPU("alifpcm")),
+		     DAILINK_COMP_ARRAY(COMP_CODEC("alifpcm", "alifpcm")),
+		     DAILINK_COMP_ARRAY(COMP_PLATFORM("alifpcm")));
 
-static struct snd_soc_dai_link alif_dai_link  = {
+static struct snd_soc_dai_link alif_dai_link = {
 	.name = "alifpcm",
 	.stream_name = "alifpcm",
 	.capture_only = 1,
 	SND_SOC_DAILINK_REG(capture),
 };
 
-static struct snd_soc_card sndcard  = {
+static struct snd_soc_card sndcard = {
 	.name = "alifpcm",
 	.owner = THIS_MODULE,
 	.dai_link = &alif_dai_link,
@@ -44,9 +43,8 @@ static struct snd_soc_card sndcard  = {
 
 #ifdef CONFIG_OF
 static const struct of_device_id alif_pcm_dt_ids[] = {
-	{
-		.compatible = "alif,alif-pcm-card",
-	},
+	{ .compatible = "alif,alif-pcm-card" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, alif_pcm_dt_ids);
 #endif

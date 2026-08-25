@@ -16,15 +16,16 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sizes.h>
+#include <linux/bits.h>
 
 #define ENSEMBLE_MAX_CLOCKS		3
 
 #define USB_CTRL2_PHY_POR_REG		0x4903F0AC
 #define PWR_CTRL_REG			0x1A609008
 
-#define PWR_CTRL_UPHY_PWR_MASK		(1U << 16)
-#define PWR_CTRL_UPHY_ISO		(1U << 17)
-#define USB_CTRL2_PHY_POR		(1U << 8)
+#define PWR_CTRL_UPHY_PWR_MASK		BIT(16)
+#define PWR_CTRL_UPHY_ISO		BIT(17)
+#define USB_CTRL2_PHY_POR		BIT(8)
 
 struct dwc3_ensemble_driverdata {
 	const char		*clk_names[ENSEMBLE_MAX_CLOCKS];
@@ -116,7 +117,6 @@ static int dwc3_ensemble_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-
 	if (ensemble->suspend_clk_idx >= 0)
 		clk_prepare_enable(ensemble->clks[ensemble->suspend_clk_idx]);
 
@@ -184,7 +184,6 @@ static void dwc3_ensemble_remove(struct platform_device *pdev)
 
 	regulator_disable(ensemble->vdd33);
 	regulator_disable(ensemble->vdd18);
-
 }
 
 static const struct dwc3_ensemble_driverdata dwc3_ensemble_drvdata = {

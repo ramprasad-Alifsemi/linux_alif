@@ -7,7 +7,7 @@
 #define MAX_TEMP_RANGE 402
 
 /* Define a 2D array to store the ADC values and corresponding temperatures */
-int tempData[][2] = {
+int temp_data[][2] = {
 	{918, -400}, // -40.0°C stored as -400 to avoid floating point
 	{919, -396}, // -39.6°C stored as -396 to avoid floating point
 	{920, -392}, // -39.2°C stored as -392 to avoid floating point

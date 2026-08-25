@@ -24,9 +24,8 @@ enum hwid {
  * Each I3C register read operation requires to read two dummy bytes before
  * the actual payload.
  */
-static int bmi323_regmap_i3c_read(void *context, const void *reg_buf,
-					size_t reg_size, void *val_buf,
-					size_t val_size)
+static int bmi323_regmap_i3c_read(void *context, const void *reg_buf, size_t reg_size,
+				  void *val_buf, size_t val_size)
 {
 	struct device *dev = context;
 	struct i3c_device *i3c = dev_to_i3cdev(dev);
@@ -94,8 +93,7 @@ static int bmi323_i3c_probe(struct i3c_device *i3cdev)
 	struct regmap *regmap;
 	int ret;
 
-	regmap = devm_regmap_init(dev, &bmi323_regmap_bus, dev,
-					&bmi323_i3c_regmap_config);
+	regmap = devm_regmap_init(dev, &bmi323_regmap_bus, dev, &bmi323_i3c_regmap_config);
 
 	if (IS_ERR(regmap)) {
 		ret = PTR_ERR(regmap);

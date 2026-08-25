@@ -23,7 +23,7 @@
 #define DRIVER_NAME "alif-event-router"
 #define MAX_CHANNELS 32
 #define MAX_SOURCES 4
-#define EVTRTR0_DMA_CTRL(n)	(0x0 + (n * 4))
+#define EVTRTR0_DMA_CTRL(n)	(0x0 + ((n) * 4))
 #define EVTRTR0_DMA_REQ_CTRL	0x80
 #define EVTRTR0_DMA_ACK_TYPE0	0x90
 #define EVTRTR0_DMA_ACK_TYPE1	0x94
@@ -42,6 +42,7 @@ struct alif_event_router {
 	struct dma_router dma_router;
 	struct device_node *dma_master;
 	unsigned long channels_allocated;
+	/* Lock for protecting channel allocation */
 	spinlock_t lock;
 };
 
@@ -107,7 +108,7 @@ unlock:
 }
 
 static void *alif_event_router_route_allocate(struct of_phandle_args *dma_spec,
-							struct of_dma *ofdma)
+					      struct of_dma *ofdma)
 {
 	struct platform_device *pdev = of_find_device_by_node(ofdma->of_node);
 	struct alif_event_router *router = platform_get_drvdata(pdev);
@@ -179,7 +180,7 @@ static int alif_event_router_probe(struct platform_device *pdev)
 	}
 
 	dev_info(dev, "ALIF Event Router DMA registered with %d channels\n",
-		MAX_CHANNELS);
+		 MAX_CHANNELS);
 	return 0;
 }
 
